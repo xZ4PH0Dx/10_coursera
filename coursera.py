@@ -30,7 +30,7 @@ def get_course_info(courses_url_list, count_courses):
     for course_url in courses_url_list[:count_courses]:
         course_page = get_courses_page(course_url)
         souped_url = BeautifulSoup(course_page.content, 'lxml')
-        name = souped_url.find(class_='title display-3-text').text
+        course_name = souped_url.find(class_='title display-3-text').text
         language = souped_url.find(class_='rc-Language').text
         start_date = souped_url.\
             find(class_='startdate rc-StartDateString caption-text').text
@@ -39,7 +39,7 @@ def get_course_info(courses_url_list, count_courses):
         number_of_weeks = len(souped_url.find_all(class_='week'))
         if rating:
             rating = re.sub('[^0-9.]', '', rating.text)
-        course_info[name] = {
+        course_info[course_name] = {
             'language': language,
             'start_date': start_date,
             'rating': rating,
