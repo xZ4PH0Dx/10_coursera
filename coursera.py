@@ -90,7 +90,7 @@ if __name__ == '__main__':
     xlsx_workbook = dict_to_xlsx(courses_dict)
 
     if os.path.exists(output_path):
-        print('Output path exists. The file will be overriden')
+        print('Output path exists. The file will be overwritten')
         os.remove(output_path)
 
     output_courses_info_to_xlsx(xlsx_workbook, output_path)
