@@ -7,14 +7,16 @@ import time
 from openpyxl import Workbook
 
 
-def create_parser(*args):
+def create_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-o', '--output', help='output path', type=str)
-    parser.add_argument('-n', '--number', help='number of courses', type=int)
+    parser.add_argument(
+        '-n', '--number', help='number of courses', default=20, type=int
+    )
     return parser.parse_args()
 
 
-def get_courses_page(url):
+def get_course_response(url):
     return requests.get(url)
 
 
@@ -23,49 +25,40 @@ def get_courses_list(courses_page):
     return [x.text for x in soup.find_all('loc')]
 
 
-def get_course_info(courses_url_list, count_courses):
-    if not count_courses:
-        count_courses = 20
-    course_info = {}
+def parse_course_response(course_response):
+    course_list = []
+    soup = BeautifulSoup(course_response.content, 'html.parser')
+    course_list.append(soup.find(class_='title display-3-text').text)
+    course_list.append(soup.find(class_='rc-Language').text)
+    start_date = soup.find(
+        class_='startdate rc-StartDateString caption-text'
+    ).text
+    course_list.append(' '.join(start_date.split(' ')[1:]))
+    rating = soup.find(class_='ratings-text bt3-hidden-xs')
+    if rating:
+        rating = re.sub('[^0-9.]', '', rating.text)
+    course_list.append(rating)
+    course_list.append(len(soup.find_all(class_='week')))
+    return course_list
+
+
+def get_courses_info(courses_url_list, count_courses):
+    courses_info = []
     for course_url in courses_url_list[:count_courses]:
-        course_page = get_courses_page(course_url)
-        souped_url = BeautifulSoup(course_page.content, 'lxml')
-        course_name = souped_url.find(class_='title display-3-text').text
-        language = souped_url.find(class_='rc-Language').text
-        start_date = souped_url.\
-            find(class_='startdate rc-StartDateString caption-text').text
-        start_date = ' '.join(start_date.split(' ')[1:])
-        rating = souped_url.find(class_='ratings-text bt3-hidden-xs')
-        number_of_weeks = len(souped_url.find_all(class_='week'))
-        if rating:
-            rating = re.sub('[^0-9.]', '', rating.text)
-        course_info[course_name] = {
-            'language': language,
-            'start_date': start_date,
-            'rating': rating,
-            'number_of_weeks': number_of_weeks
-        }
-    return course_info
+        course_response = get_course_response(course_url)
+        course_list = parse_course_response(course_response)
+        courses_info.append(course_list)
+    return courses_info
 
 
-def dict_to_xlsx(courses_dict):
+def courses_info_to_xlsx(courses_list):
+    header = ['Name', 'Language', 'Start date', 'Rating', 'Weeks', ]
     wb = Workbook()
     sheet = wb.active
     sheet.title = 'Coursera courses'
-    sheet.cell(row=1, column=1, value='Courses:')
-    sheet.cell(row=2, column=1, value='Name')
-    sheet.cell(row=2, column=2, value='Language')
-    sheet.cell(row=2, column=3, value='Weeks')
-    sheet.cell(row=2, column=4, value='Start date')
-    sheet.cell(row=2, column=5, value='Rating')
-    actual_row = 3
-    for course, value in courses_dict.items():
-        sheet.cell(row=actual_row, column=1, value=course)
-        sheet.cell(row=actual_row, column=2, value=value['language'])
-        sheet.cell(row=actual_row, column=3, value=value['number_of_weeks'])
-        sheet.cell(row=actual_row, column=4, value=value['start_date'])
-        sheet.cell(row=actual_row, column=5, value=value['rating'])
-        actual_row += 1
+    sheet.append(header)
+    for course in courses_list:
+        sheet.append(course)
     return wb
 
 
@@ -84,10 +77,10 @@ if __name__ == '__main__':
         )
 
     sitemap_courses = 'https://www.coursera.org/sitemap~www~courses.xml'
-    courses_page_requests = get_courses_page(sitemap_courses)
+    courses_page_requests = get_course_response(sitemap_courses)
     courses_url_list = get_courses_list(courses_page_requests)
-    courses_dict = get_course_info(courses_url_list, args.number)
-    xlsx_workbook = dict_to_xlsx(courses_dict)
+    courses_list = get_courses_info(courses_url_list, args.number)
+    xlsx_workbook = courses_info_to_xlsx(courses_list)
 
     if os.path.exists(output_path):
         print('Output path exists. The file will be overwritten')
