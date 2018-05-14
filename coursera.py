@@ -23,7 +23,7 @@ def create_parser():
     return parser.parse_args()
 
 
-def get_course_response(url):
+def get_course_html(url):
     return requests.get(url).content
 
 
@@ -36,9 +36,9 @@ def get_courses_list(courses_page):
     return [x.text for x in soup.find_all('loc')]
 
 
-def parse_course_response(course_response):
+def parse_course_response(course_html):
     course_dict = {}
-    soup = BeautifulSoup(course_response, 'html.parser')
+    soup = BeautifulSoup(course_html, 'html.parser')
     course_dict['name'] = soup.find(class_='title display-3-text').text
     course_dict['language'] = soup.find(class_='rc-Language').text
     start_date = soup.find(
@@ -56,8 +56,8 @@ def parse_course_response(course_response):
 def get_courses_info(courses_url_list, count_courses):
     courses_info = []
     for course_url in courses_url_list[:count_courses]:
-        course_response = get_course_response(course_url)
-        course_dict = parse_course_response(course_response)
+        course_html = get_course_html(course_url)
+        course_dict = parse_course_response(course_html)
         courses_info.append(course_dict)
     return courses_info
 
@@ -89,10 +89,10 @@ if __name__ == '__main__':
     output_path = args.output
     sitemap_url = 'https://www.coursera.org/sitemap~www~courses.xml'
 
-    courses_page_requests = get_course_response(sitemap_url)
-    courses_url_list = get_courses_list(courses_page_requests)
-    courses_dict = get_courses_info(courses_url_list, args.number)
-    xlsx_workbook = courses_info_to_xlsx(courses_dict)
+    courses_page_html = get_course_html(sitemap_url)
+    courses_url_list = get_courses_list(courses_page_html)
+    courses_list = get_courses_info(courses_url_list, args.number)
+    xlsx_workbook = courses_info_to_xlsx(courses_list)
 
     if os.path.exists(output_path):
         sys.exit('File exists. Program will exit')
